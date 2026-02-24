@@ -1,34 +1,28 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Check, X, RotateCcw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import GlassCard from "./GlassCard";
 
 const subjects = ["Mathematics", "Science", "History", "Computer Science", "Literature", "Geography"];
 const quizTypes = ["MCQ", "True/False", "Short Answer"];
 const difficulties = ["Easy", "Medium", "Hard"];
 
-const sampleQuestions = [
-  {
-    q: "What is the time complexity of binary search?",
-    options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
-    correct: 1,
-  },
-  {
-    q: "Which data structure uses FIFO?",
-    options: ["Stack", "Queue", "Tree", "Graph"],
-    correct: 1,
-  },
-  {
-    q: "What does HTML stand for?",
-    options: [
-      "Hyper Text Markup Language",
-      "High Tech Modern Language",
-      "Hyper Transfer Markup Language",
-      "Home Tool Markup Language",
-    ],
-    correct: 0,
-  },
-];
+interface MCQQuestion {
+  q: string;
+  options: string[];
+  correct: number;
+}
+
+interface ShortAnswerQuestion {
+  q: string;
+  answer: string;
+}
+
+type Question = MCQQuestion | ShortAnswerQuestion;
+
+const isMCQ = (q: Question): q is MCQQuestion => "options" in q;
 
 const DashboardSection = () => {
   const [subject, setSubject] = useState("Computer Science");
@@ -39,32 +33,57 @@ const DashboardSection = () => {
   const [timeLimit, setTimeLimit] = useState(10);
   const [generating, setGenerating] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<Record<number, number>>({});
+  const [shortAnswers, setShortAnswers] = useState<Record<number, string>>({});
   const [showScore, setShowScore] = useState(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenerating(true);
     setShowQuiz(false);
     setSelected({});
+    setShortAnswers({});
     setShowScore(false);
-    setTimeout(() => {
-      setGenerating(false);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-quiz", {
+        body: { subject, topic, difficulty, numQuestions, quizType },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setQuestions(data.questions || []);
       setShowQuiz(true);
-    }, 2000);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Quiz generation failed. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleReset = () => {
     setShowQuiz(false);
+    setQuestions([]);
     setSelected({});
+    setShortAnswers({});
     setShowScore(false);
     setTopic("");
   };
 
-  const score = Object.entries(selected).filter(
-    ([i, v]) => sampleQuestions[Number(i)]?.correct === v
-  ).length;
+  const score = questions.reduce((acc, q, i) => {
+    if (isMCQ(q)) {
+      return acc + (selected[i] === q.correct ? 1 : 0);
+    }
+    return acc + (shortAnswers[i]?.trim().toLowerCase() === q.answer.trim().toLowerCase() ? 1 : 0);
+  }, 0);
 
-  const progress = (Object.keys(selected).length / sampleQuestions.length) * 100;
+  const answeredCount = quizType === "Short Answer"
+    ? Object.keys(shortAnswers).filter(k => shortAnswers[Number(k)]?.trim()).length
+    : Object.keys(selected).length;
+
+  const progress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   return (
     <section className="py-20 px-4" id="dashboard">
@@ -216,7 +235,7 @@ const DashboardSection = () => {
                     <Loader2 className="w-12 h-12 text-neon-purple animate-spin" />
                     <p className="text-muted-foreground animate-pulse">AI is generating your quiz...</p>
                   </motion.div>
-                ) : showQuiz ? (
+                ) : showQuiz && questions.length > 0 ? (
                   <motion.div
                     key="quiz"
                     initial={{ opacity: 0, y: 10 }}
@@ -228,7 +247,7 @@ const DashboardSection = () => {
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
                         <span>Progress</span>
-                        <span>{Object.keys(selected).length}/{sampleQuestions.length}</span>
+                        <span>{answeredCount}/{questions.length}</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
                         <motion.div
@@ -241,39 +260,60 @@ const DashboardSection = () => {
                     </div>
 
                     {/* Questions */}
-                    {sampleQuestions.map((q, qi) => (
+                    {questions.map((q, qi) => (
                       <GlassCard key={qi} className="p-4" tilt={false}>
                         <p className="text-sm font-medium text-foreground mb-3">
                           {qi + 1}. {q.q}
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {q.options.map((opt, oi) => {
-                            const isSelected = selected[qi] === oi;
-                            const isCorrect = showScore && q.correct === oi;
-                            const isWrong = showScore && isSelected && q.correct !== oi;
-                            return (
-                              <button
-                                key={oi}
-                                onClick={() => !showScore && setSelected((p) => ({ ...p, [qi]: oi }))}
-                                className={`text-left text-sm px-3 py-2 rounded-lg border transition-all ${
-                                  isCorrect
-                                    ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan"
-                                    : isWrong
-                                    ? "border-destructive bg-destructive/10 text-destructive"
-                                    : isSelected
-                                    ? "border-primary bg-primary/10 text-foreground neon-glow"
-                                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                                }`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {isCorrect && <Check className="w-3.5 h-3.5" />}
-                                  {isWrong && <X className="w-3.5 h-3.5" />}
-                                  {opt}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        {isMCQ(q) ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {q.options.map((opt, oi) => {
+                              const isSelected = selected[qi] === oi;
+                              const isCorrect = showScore && q.correct === oi;
+                              const isWrong = showScore && isSelected && q.correct !== oi;
+                              return (
+                                <button
+                                  key={oi}
+                                  onClick={() => !showScore && setSelected((p) => ({ ...p, [qi]: oi }))}
+                                  className={`text-left text-sm px-3 py-2 rounded-lg border transition-all ${
+                                    isCorrect
+                                      ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan"
+                                      : isWrong
+                                      ? "border-destructive bg-destructive/10 text-destructive"
+                                      : isSelected
+                                      ? "border-primary bg-primary/10 text-foreground neon-glow"
+                                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {isCorrect && <Check className="w-3.5 h-3.5" />}
+                                    {isWrong && <X className="w-3.5 h-3.5" />}
+                                    {opt}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div>
+                            <input
+                              value={shortAnswers[qi] || ""}
+                              onChange={(e) => !showScore && setShortAnswers((p) => ({ ...p, [qi]: e.target.value }))}
+                              placeholder="Type your answer..."
+                              className={`w-full glass rounded-lg px-4 py-2.5 text-foreground bg-transparent placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary ${
+                                showScore
+                                  ? shortAnswers[qi]?.trim().toLowerCase() === (q as ShortAnswerQuestion).answer.trim().toLowerCase()
+                                    ? "border-neon-cyan ring-1 ring-neon-cyan"
+                                    : "border-destructive ring-1 ring-destructive"
+                                  : ""
+                              }`}
+                              disabled={showScore}
+                            />
+                            {showScore && shortAnswers[qi]?.trim().toLowerCase() !== (q as ShortAnswerQuestion).answer.trim().toLowerCase() && (
+                              <p className="text-xs text-neon-cyan mt-1">Correct: {(q as ShortAnswerQuestion).answer}</p>
+                            )}
+                          </div>
+                        )}
                       </GlassCard>
                     ))}
 
@@ -283,7 +323,7 @@ const DashboardSection = () => {
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => setShowScore(true)}
-                        disabled={Object.keys(selected).length < sampleQuestions.length}
+                        disabled={answeredCount < questions.length}
                         className="w-full gradient-bg text-primary-foreground font-semibold py-3 rounded-xl neon-glow disabled:opacity-40 transition-all"
                       >
                         Submit Quiz
@@ -291,17 +331,14 @@ const DashboardSection = () => {
                     ) : (
                       <GlassCard className="p-5 text-center neon-glow-strong" tilt={false}>
                         <p className="text-3xl font-bold gradient-text mb-1">
-                          {score}/{sampleQuestions.length}
+                          {score}/{questions.length}
                         </p>
                         <p className="text-sm text-muted-foreground mb-3">
-                          {score === sampleQuestions.length
+                          {score === questions.length
                             ? "Perfect score! Outstanding! 🎉"
-                            : score >= 2
+                            : score >= questions.length * 0.7
                             ? "Great job! Keep improving! 💪"
                             : "Keep practicing, you'll get there! 📚"}
-                        </p>
-                        <p className="text-xs text-muted-foreground/70">
-                          AI Insight: Focus on algorithmic complexity for better results.
                         </p>
                       </GlassCard>
                     )}
