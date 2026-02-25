@@ -21,7 +21,7 @@ const Navbar = ({ onAuthOpen }: NavbarProps) => {
         {/* Desktop */}
         <div className="hidden md:flex items-center gap-6">
           <a href="#dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Dashboard</a>
-          <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
@@ -49,7 +49,7 @@ const Navbar = ({ onAuthOpen }: NavbarProps) => {
           className="md:hidden glass-strong border-t border-border px-4 py-4 space-y-3"
         >
           <a href="#dashboard" className="block text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>Dashboard</a>
-          <a href="#" className="block text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>Features</a>
+          <a href="#features" className="block text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>Features</a>
           <button
             onClick={() => { onAuthOpen(); setMobileOpen(false); }}
             className="w-full gradient-bg text-primary-foreground text-sm font-medium py-2 rounded-lg"

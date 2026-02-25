@@ -34,20 +34,22 @@ const HeroSection = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-            <motion.button
+            <motion.a
+              href="#dashboard"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.97 }}
-              className="gradient-bg text-primary-foreground font-semibold px-8 py-3.5 rounded-xl neon-glow-strong transition-all text-lg"
+              className="gradient-bg text-primary-foreground font-semibold px-8 py-3.5 rounded-xl neon-glow-strong transition-all text-lg text-center"
             >
               Generate Smart Quiz
-            </motion.button>
-            <motion.button
+            </motion.a>
+            <motion.a
+              href="#features"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.97 }}
-              className="glass font-semibold px-8 py-3.5 rounded-xl text-foreground hover:bg-muted/20 transition-all text-lg gradient-border"
+              className="glass font-semibold px-8 py-3.5 rounded-xl text-foreground hover:bg-muted/20 transition-all text-lg gradient-border text-center"
             >
               View Demo
-            </motion.button>
+            </motion.a>
           </div>
         </motion.div>
 
